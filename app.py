@@ -1,100 +1,104 @@
 import streamlit as st
 from datetime import datetime, date, timedelta
+import numpy as np
 
 # 1. 页面配置
-st.set_page_config(page_title="女生贴心助手", page_icon="🌸", layout="wide")
+st.set_page_config(page_title="智能生理期进化助手", page_icon="🌙", layout="wide")
 
-# 2. 核心知识库：四个时期的详细数据
+# 2. 初始化智能数据库 (如果浏览器没刷新，它会一直记得)
+if 'cycle_history' not in st.session_state:
+    st.session_state.cycle_history = [28] # 默认初始值为28天
+
+# 3. 核心知识库
 PHASE_DICT = {
-    "月经期": {
-        "range": (1, 5),
-        "icon": "🩸", "color": "#FFC0CB", "bg": "#FFF0F5",
-        "change": "子宫内膜脱落，激素降至最低。你可能会感到痛经、腰酸、乏力，皮肤也变得干燥敏感。",
-        "do": ["暖宝宝热敷小腹", "早睡早起，保证8小时睡眠", "淋浴，保持身体清洁"],
-        "no": ["忌生冷冰凉（冷饮、冰淇淋）", "忌剧烈运动、游泳、盆浴", "忌洗头不吹干、受凉"],
-        "eat": "🥣 建议：红糖姜茶、黑米粥、牛肉、红枣、暖性水果。"
-    },
-    "卵泡期": {
-        "range": (6, 12),
-        "icon": "🌱", "color": "#ADD8E6", "bg": "#F0F8FF",
-        "change": "雌激素开始回升，卵泡发育。你会发现自己精力变充沛了，心情变好，皮肤也开始透亮。",
-        "do": ["高效学习工作，这是你的黄金期", "尝试新技能或社交活动", "可以开始力量训练"],
-        "no": ["忌过度熬夜（浪费了身体修复的最佳期）", "忌盲目节食"],
-        "eat": "🥗 建议：鱼虾等优质蛋白、豆浆、新鲜蔬果。"
-    },
-    "排卵期": {
-        "range": (13, 16),
-        "icon": "🥚", "color": "#90EE90", "bg": "#F5FFF5",
-        "change": "雌激素达到顶峰。身体分泌物增加，体温略微升高，心情最轻盈，自信心爆棚。",
-        "do": ["保持身体干爽清洁", "多做户外运动、慢跑", "适合拍照、约会"],
-        "no": ["忌吃太甜（此时激素波动容易长排卵痘）", "忌久坐不动"],
-        "eat": "💧 建议：多喝水、全谷物、高纤维食物。"
-    },
-    "黄体期": {
-        "range": (17, 28),
-        "icon": "🍂", "color": "#FFFACD", "bg": "#FFFFF0",
-        "change": "孕激素占主导。你可能会感到胸部胀痛、身体浮肿，容易焦虑、易怒或无故想哭。",
-        "do": ["睡前热水泡脚", "做冥想或听舒缓音乐放松", "适当减少社交，多独处"],
-        "no": ["忌吃太咸（会加重浮肿）", "忌喝咖啡（会加重焦虑）", "忌做重大决策"],
-        "eat": "🍌 建议：香蕉（补镁）、全麦面包、坚果、黑巧克力。"
-    }
+    "月经期": {"icon": "🩸", "color": "#FFC0CB", "bg": "#FFF0F5", "change": "内膜脱落，身体虚弱。建议：热敷、保暖、补铁。"},
+    "卵泡期": {"icon": "🌱", "color": "#ADD8E6", "bg": "#F0F8FF", "change": "雌激素回升。建议：高效工作、尝试新运动。"},
+    "排卵期": {"icon": "🥚", "color": "#90EE90", "bg": "#F5FFF5", "change": "精力最旺盛。建议：多喝水、保持心情愉快。"},
+    "黄体期": {"icon": "🍂", "color": "#FFFACD", "bg": "#FFFFF0", "change": "经前综合征。建议：控盐、控咖啡因、冥想。"}
 }
 
-# 3. 首页问候与核心交互
-st.title("🌸 专属生理期智能顾问")
-st.write("---")
+st.title("🌙 生理期智能顾问 (进化中...)")
 
-# 交互中心：提问
-st.subheader("👋 亲爱的，先告诉我你的进度：")
-col_q1, col_q2 = st.columns([1, 1])
+# --- 侧边栏：智能进化区 ---
+with st.sidebar:
+    st.header("🧠 智能进化系统")
+    st.write("App 会根据您的历史记录自动计算平均值。")
+    
+    # 手动输入历史记录（模拟用久了的情况）
+    new_record = st.number_input("添加一次历史周期天数 (如30):", min_value=20, max_value=45, value=28)
+    if st.button("➕ 记录这次周期"):
+        st.session_state.cycle_history.append(new_record)
+        st.success("记录成功！")
 
-with col_q1:
-    day_input = st.number_input("今天是月经来的第几天？", min_value=1, max_value=35, value=1, step=1)
+    # 计算平均值
+    avg_cycle = int(np.mean(st.session_state.cycle_history))
+    st.metric("您的平均周期", f"{avg_cycle} 天", delta=f"{avg_cycle - 28} (vs 初始值)")
+    
+    if st.button("🗑️ 清空历史"):
+        st.session_state.cycle_history = [28]
+        st.rerun()
 
-# 4. 核心逻辑：根据天数判定时期
-def get_current_phase(day):
-    if 1 <= day <= 5: return "月经期"
-    elif 6 <= day <= 12: return "卵泡期"
-    elif 13 <= day <= 16: return "排卵期"
+# --- 主交互区 ---
+st.subheader("👋 亲爱的，今天进度如何？")
+
+# 交互输入
+day_input = st.number_input("今天是月经开始后的第几天？", min_value=1, max_value=avg_cycle, value=1)
+
+# 判定时期逻辑 (根据平均周期动态调整比例)
+def get_current_phase(day, cycle):
+    if day <= 5: return "月经期"
+    elif day <= (cycle - 14 - 2): return "卵泡期" # 排卵前
+    elif day <= (cycle - 14 + 2): return "排卵期" # 排卵前后4天
     else: return "黄体期"
 
-current_phase = get_current_phase(day_input)
+current_phase = get_current_phase(day_input, avg_cycle)
 data = PHASE_DICT[current_phase]
 
-# 5. 结果显示：一眼看穿当前状态
-st.write("")
+# 计算现实日历预警
+today = date.today()
+start_of_this_period = today - timedelta(days=day_input - 1)
+next_period_date = start_of_this_period + timedelta(days=avg_cycle)
+days_until_next = (next_period_date - today).days
+
+# 4. 显示大卡片
 st.markdown(f"""
-<div style="background-color: {data['bg']}; padding: 30px; border-radius: 20px; border-left: 15px solid {data['color']};">
-    <h1 style="margin:0; color: #333;">{data['icon']} 当前处于：{current_phase}</h1>
-    <h3 style="color: #666; margin-top: 5px;">第 {day_input} 天</h3>
-    <hr style="border: 0.5px solid {data['color']}55;">
-    <p style="font-size: 1.2em; color: #333;"><b>🧬 身体变化：</b>{data['change']}</p>
+<div style="background-color: {data['bg']}; padding: 25px; border-radius: 15px; border-left: 15px solid {data['color']};">
+    <h1 style="margin:0;">{data['icon']} 当前：{current_phase}</h1>
+    <h3 style="color: #666;">第 {day_input} 天 (基于平均周期 {avg_cycle} 天)</h3>
+    <p style="font-size: 1.1em; margin-top:10px;"><b>🧬 身体状态：</b>{data['change']}</p>
 </div>
 """, unsafe_allow_html=True)
 
-# 6. 宜忌卡片
+# 5. 日历预警
 st.write("")
-c1, c2, c3 = st.columns(3)
+col1, col2 = st.columns(2)
+with col1:
+    st.info(f"### 📅 下次预警：\n## {next_period_date.strftime('%Y-%m-%d')}")
+    st.write(f"距离下一次还有 **{days_until_next}** 天")
+
+with col2:
+    if days_until_next <= 3:
+        st.error("🚨 **高能预警：姨妈即将到达战场！**\n请备好物资，减少凉食。")
+    else:
+        progress = (day_input / avg_cycle)
+        st.write("⚙️ **周期进度**")
+        st.progress(progress)
+
+# 6. 生活指南
+st.divider()
+st.subheader("💡 今天的专属宜忌")
+c1, c2 = st.columns(2)
+# 简单的宜忌数据
+advice = {
+    "月经期": {"do": "早睡、热敷、喝姜茶", "no": "剧烈运动、冰淇淋、盆浴"},
+    "卵泡期": {"do": "高强度工作、健身、社交", "no": "过度节食"},
+    "排卵期": {"do": "多喝水、记录分泌物", "no": "熬夜、吃太甜"},
+    "黄体期": {"do": "泡脚、听轻音乐、吃黑巧", "no": "咖啡、高盐饮食、大决策"}
+}
 
 with c1:
-    st.success("✅ **你应该做**")
-    for item in data['do']:
-        st.write(f"· {item}")
-
+    st.success(f"✅ **推荐做：** {advice[current_phase]['do']}")
 with c2:
-    st.error("❌ **你要忌讳**")
-    for item in data['no']:
-        st.write(f"· {item}")
+    st.error(f"❌ **忌讳做：** {advice[current_phase]['no']}")
 
-with c3:
-    st.warning("🍱 **饮食贴士**")
-    st.write(data['eat'])
-
-# 7. 全周期概览（小图示）
-st.write("---")
-st.caption("📍 全周期概览：月经期(1-5天) | 卵泡期(6-12天) | 排卵期(13-16天) | 黄体期(17-28天)")
-
-# 8. 紧急关怀按钮
-if st.button("🚨 我现在很不舒服"):
-    st.toast("摸摸头，请尝试热敷或休息，严重请务必就医。")
-    st.info("建议：月经期请注意保暖，黄体期请尽量放松心态。")
+st.caption("注：随着您记录的次数增多，左侧侧边栏的‘平均周期’会越来越准，预警也会随之自动修正。")
