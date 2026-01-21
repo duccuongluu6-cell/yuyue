@@ -1,123 +1,95 @@
 import streamlit as st
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import matplotlib.pyplot as plt
-import numpy as np
 from logic import get_period_phase
 
-# 设置页面配置
+# 页面配置
 st.set_page_config(page_title="女生贴心助手", page_icon="🌙", layout="wide")
 
-# 1. 建议数据库与配置
-ADVICE_DATA = {
-    "月经期": {
-        "eat_yes": "🩸 补血温热：红糖姜茶、黑豆、菠菜、桂圆。",
-        "eat_no": "🧊 严禁生冷：冰淇淋、冷饮、螃蟹、绿茶。",
-        "do": "🛌 多休息，可以用暖宝宝热敷，避免剧烈运动和受凉。",
-        "status": "当前处于身体排毒期，请务必保暖。",
-        "color": "#FFC0CB",
-        "icon": "🩸"
-    },
-    "卵泡期": {
-        "eat_yes": "🥗 优质蛋白：豆制品、鱼类、大量新鲜蔬果。",
-        "eat_no": "🍔 正常饮食，避免过量油腻。",
-        "do": "💪 状态最好！适合健身、学习，效率极高。",
-        "status": "荷尔蒙分泌增加，皮肤状态和心情都会变好哦！",
-        "color": "#ADD8E6",
-        "icon": "🌱"
-    },
-    "排卵期": {
-        "eat_yes": "💧 多喝水：多吃谷物和含纤维素高的食物。",
-        "eat_no": "🍩 控糖：此时容易长痘，少吃甜食。",
-        "do": "🚶‍♀️ 保持运动，注意个人清洁。",
-        "status": "此时精力旺盛，是身体最轻盈的时候。",
-        "color": "#90EE90",
-        "icon": "🥚"
-    },
-    "黄体期": {
-        "eat_yes": "🍌 缓解焦虑：香蕉（含镁）、全麦面包、坚果。",
-        "eat_no": "🧂 控盐：防止经前水肿；少喝咖啡防止焦虑。",
-        "do": "🧘 适合冥想、听轻音乐，保证充足睡眠。",
-        "status": "可能会有经前综合征（PMS），心情烦躁是正常的，抱抱你。",
-        "color": "#FFFACD",
-        "icon": "🍂"
-    }
+# 1. 完善的阶段配置
+PHASE_INFO = {
+    "月经期": {"icon": "🩸", "color": "#FFC0CB", "bg": "#FFF0F5", "status": "身体排毒中，请务必保暖。"},
+    "卵泡期": {"icon": "🌱", "color": "#ADD8E6", "bg": "#F0F8FF", "status": "荷尔蒙回升，皮肤和心情都在变好！"},
+    "排卵期": {"icon": "🥚", "color": "#90EE90", "bg": "#F5FFF5", "status": "精力最旺盛，身体最轻盈的时候。"},
+    "黄体期": {"icon": "🍂", "color": "#FFFACD", "bg": "#FFFFF0", "status": "可能伴随经前不适，记得抱抱自己。"}
 }
 
-st.title("🌙 您的生理期贴心指南")
+ADVICE_DETAIL = {
+    "月经期": {"eat_yes": "红糖姜茶、黑豆、补铁食物", "eat_no": "冷饮、生冷海鲜、浓茶", "do": "热敷小腹、早睡、避免洗头受凉"},
+    "卵泡期": {"eat_yes": "鱼虾蛋白、新鲜蔬果", "eat_no": "无特殊忌口，均衡为主", "do": "适合高强度健身、高效工作"},
+    "排卵期": {"eat_yes": "多喝水、高纤维食物", "eat_no": "甜食、高油高糖", "do": "户外活动、注意皮肤清洁"},
+    "黄体期": {"eat_yes": "香蕉(补镁)、全麦面包", "eat_no": "高盐食物(防浮肿)、咖啡", "do": "冥想、听轻音乐、保证睡眠"}
+}
 
-# 2. 侧边栏设置
+st.title("🌙 生理期智慧指南")
+
+# 2. 侧边栏：基础数据
 with st.sidebar:
-    st.header("⚙️ 个人设置")
-    # 默认日期设置为今天
-    last_date = st.date_input("上次月经开始日期", date.today())
-    avg_c = st.number_input("平均周期天数", value=28, min_value=20, max_value=45)
-    st.info("数据仅存于浏览器，保护隐私。")
+    st.header("⚙️ 基础设置")
+    history_date = st.date_input("记录：上次月经开始日", date.today() - timedelta(days=14))
+    avg_cycle = st.number_input("周期长度 (天)", value=28)
+    st.divider()
+    st.caption("数据仅保存在您的浏览器中")
 
-# 3. 计算逻辑
-phase, day_num = get_period_phase(last_date, avg_c)
+# 3. 核心交互区：用户主动指明状态
+st.subheader("📢 实时状态确认")
+col_btn1, col_btn2 = st.columns([1, 2])
 
-# 4. 核心指标展示
-col_m1, col_m2 = st.columns(2)
-with col_m1:
-    st.metric("当前阶段", f"{ADVICE_DATA[phase]['icon']} {phase}")
-with col_m2:
-    st.metric("周期天数", f"第 {day_num} 天")
+# 用户手动点击按钮
+is_period_now = col_btn1.toggle("🩸 我现在正处于经期", value=False)
 
-# --- 5. 一眼看状态 (大卡片) ---
-# 使用 HTML 增加背景颜色和边框，强化视觉
+if is_period_now:
+    # 如果用户点选“是”，强制锁定为月经期
+    phase = "月经期"
+    day_num = 1
+    st.toast("已切换至经期模式，请注意休息！")
+else:
+    # 否则按逻辑推算
+    phase, day_num = get_period_phase(history_date, avg_cycle)
+
+# 4. 视觉卡片：一眼看状态
 st.markdown(f"""
-<div style="background-color: {ADVICE_DATA[phase]['color']}44; padding: 20px; border-radius: 10px; border-left: 10px solid {ADVICE_DATA[phase]['color']}; margin-bottom: 25px;">
-    <h3 style="margin:0; color: #333;">📍 身体信号：</h3>
-    <p style="font-size: 1.2em; color: #444; margin-top: 10px;">{ADVICE_DATA[phase]['status']}</p>
+<div style="background-color: {PHASE_INFO[phase]['bg']}; padding: 25px; border-radius: 15px; border-left: 10px solid {PHASE_INFO[phase]['color']};">
+    <h1 style="margin:0; color: #333;">{PHASE_INFO[phase]['icon']} {phase} <span style="font-size: 0.6em; color: #666;">· 第 {day_num} 天</span></h1>
+    <p style="font-size: 1.3em; color: #444; margin-top: 10px;"><b>身体信号：</b>{PHASE_INFO[phase]['status']}</p>
 </div>
 """, unsafe_allow_html=True)
 
-# 6. 建议板块
+# 5. 建议板块
+st.write("")
 c1, c2, c3 = st.columns(3)
 with c1:
-    st.success("✅ **建议吃**")
-    st.write(ADVICE_DATA[phase]['eat_yes'])
+    st.success(f"✅ **建议吃**\n\n{ADVICE_DETAIL[phase]['eat_yes']}")
 with c2:
-    st.error("❌ **忌口**")
-    st.write(ADVICE_DATA[phase]['eat_no'])
+    st.error(f"❌ **忌口**\n\n{ADVICE_DETAIL[phase]['eat_no']}")
 with c3:
-    st.warning("🧘 **该做什么**")
-    st.write(ADVICE_DATA[phase]['do'])
+    st.warning(f"🧘 **应该做**\n\n{ADVICE_DETAIL[phase]['do']}")
 
-# --- 7. 视觉强化进度图 ---
+# 6. 视觉化进度条（高亮当前）
 st.divider()
-st.subheader("🗓️ 周期阶段进度")
+st.subheader("🗓️ 周期进度视觉化")
 
-fig, ax = plt.subplots(figsize=(10, 2))
-boundaries = [0, 5, 12, 16, avg_c]
-names = ["月经期", "卵泡期", "排卵期", "黄体期"]
+fig, ax = plt.subplots(figsize=(10, 1.5))
+boundaries = [0, 5, 12, 16, avg_cycle]
+p_names = ["月经期", "卵泡期", "排卵期", "黄体期"]
 
-for i in range(len(names)):
-    # 逻辑：只有当前阶段是高亮的，其他阶段变淡
-    is_current = (phase == names[i])
-    alpha_val = 0.9 if is_current else 0.15
-    
-    # 绘制色块
+for i in range(len(p_names)):
+    # 聚光灯效果：只有当前阶段是彩色的
+    is_active = (phase == p_names[i])
     ax.barh(0, boundaries[i+1]-boundaries[i], left=boundaries[i], 
-            color=ADVICE_DATA[names[i]]['color'], alpha=alpha_val, edgecolor='white', linewidth=1)
-    
-    # 标注图标（避免文字乱码）
-    icon_text = ADVICE_DATA[names[i]]['icon']
-    ax.text(boundaries[i] + (boundaries[i+1]-boundaries[i])/2, 0, icon_text, 
-            va='center', ha='center', fontsize=16)
+            color=PHASE_INFO[p_names[i]]['color'], 
+            alpha=0.9 if is_active else 0.1, 
+            edgecolor='white', linewidth=2)
+    # 用图标代表阶段
+    ax.text(boundaries[i] + (boundaries[i+1]-boundaries[i])/2, 0, 
+            PHASE_INFO[p_names[i]]['icon'], va='center', ha='center', fontsize=18)
 
-# 标记“今天”的位置
-ax.plot(day_num, 0, marker='o', markersize=12, color='red', markeredgecolor='white')
-ax.annotate("YOU", xy=(day_num, 0.2), xytext=(day_num, 0.8),
-            arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=5),
-            ha='center', fontweight='bold', color='red')
-
-ax.set_xlim(0, avg_c)
-ax.set_ylim(-1, 1)
-ax.axis('off') # 隐藏坐标轴
+# 标注用户位置
+ax.plot(day_num, 0, marker='o', markersize=15, color='red', markeredgecolor='white')
+ax.set_xlim(0, avg_cycle)
+ax.axis('off')
 st.pyplot(fig)
 
-# 8. 紧急对策
-st.divider()
-if st.toggle("🚨 我现在很不舒服 (痛经)"):
-    st.error("### 🚑 紧急缓解方案：\n1. 喝热水/姜汤 \n2. 腹部热敷 \n3. 婴儿式侧卧 \n4. 必要时咨询医生使用药物")
+# 7. 痛经紧急求助
+if st.button("🚨 我现在很痛，该怎么办？"):
+    st.error("### 🚑 痛经紧急对策：\n1. 喝热姜茶 / 敷暖宝宝 \n2. 婴儿式侧卧放松腹部 \n3. 严重时请咨询医生并按医嘱使用止痛药")
